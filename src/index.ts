@@ -48,7 +48,7 @@ var solutionMoves: GanCubeMove[] = [];
 var twistyScene: THREE.Scene;
 var twistyVantage: any;
 
-const HOME_ORIENTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(15 * Math.PI / 180, -20 * Math.PI / 180, 0));
+const HOME_ORIENTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI/4, -Math.PI / 4, 0));
 var cubeQuaternion: THREE.Quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(30 * Math.PI / 180, -30 * Math.PI / 180, 0));
 
 async function amimateCubeOrientation() {
