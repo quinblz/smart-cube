@@ -2,22 +2,22 @@
 import './style.css'
 
 import $ from 'jquery';
-import { Subscription, interval } from 'rxjs';
 import { TwistyPlayer } from 'cubing/twisty';
 import { experimentalSolve3x3x3IgnoringCenters } from 'cubing/search';
 
 import * as THREE from 'three';
 
 import {
-  now,
   connectGanCube,
   GanCubeConnection,
   GanCubeEvent,
-  GanCubeMove,
-  makeTimeFromTimestamp,
   cubeTimestampCalcSkew,
-  cubeTimestampLinearFit
 } from 'gan-web-bluetooth';
+
+import {
+  TimedSolve,
+  TimerView,
+} from "./timer"
 
 import {
   faceletsToPattern,
@@ -48,8 +48,8 @@ var twistyPlayer = new TwistyPlayer({
 $('#cube').append(twistyPlayer);
 
 var conn: GanCubeConnection | null;
-var lastMoves: GanCubeMove[] = [];
-var solutionMoves: GanCubeMove[] = [];
+var solve = new TimedSolve();
+var timer = new TimerView();
 
 var twistyScene: THREE.Scene;
 var twistyVantage: any;
@@ -84,20 +84,13 @@ async function handleGyroEvent(event: GanCubeEvent) {
 
 async function handleMoveEvent(event: GanCubeEvent) {
   if (event.type == "MOVE") {
-    if (timerState == "READY") {
-      setTimerState("RUNNING");
+    if (timer.state == "READY") {
+      solve = new TimedSolve()
+      timer.setState("RUNNING");
     }
     twistyPlayer.experimentalAddMove(event.move, { cancel: false });
-    lastMoves.push(event);
-    if (timerState == "RUNNING") {
-      solutionMoves.push(event);
-    }
-    if (lastMoves.length > 256) {
-      lastMoves = lastMoves.slice(-256);
-    }
-    if (lastMoves.length > 10) {
-      var skew = cubeTimestampCalcSkew(lastMoves);
-      $('#skew').val(skew + '%');
+    if (timer.state == "RUNNING") {
+      solve.log(event);
     }
   }
 }
@@ -166,68 +159,27 @@ $('#connect').on('click', async () => {
   }
 });
 
-var timerState: "IDLE" | "READY" | "RUNNING" | "STOPPED" = "IDLE";
-
-function setTimerState(state: typeof timerState) {
-  timerState = state;
-  switch (state) {
-    case "IDLE":
-      stopLocalTimer();
-      $('#timer').hide();
-      break;
-    case 'READY':
-      setTimerValue(0);
-      $('#timer').show();
-      $('#timer').css('color', '#0f0');
-      break;
-    case 'RUNNING':
-      solutionMoves = [];
-      startLocalTimer();
-      $('#timer').css('color', '#999');
-      break;
-    case 'STOPPED':
-      stopLocalTimer();
-      $('#timer').css('color', '#fff');
-      var fittedMoves = cubeTimestampLinearFit(solutionMoves);
-      var lastMove = fittedMoves.slice(-1).pop();
-      setTimerValue(lastMove ? lastMove.cubeTimestamp! : 0);
-      break;
-  }
-}
-
 twistyPlayer.experimentalModel.currentPattern.addFreshListener(async (kpattern) => {
   var facelets = patternToFacelets(kpattern);
   if (facelets == SOLVED_STATE) {
-    if (timerState == "RUNNING") {
-      setTimerState("STOPPED");
+    if (timer.state == "RUNNING") {
+      solve.stop();
+      timer.setState("STOPPED");
+      timer.setValue(solve.duration)
     }
     twistyPlayer.alg = '';
+    if (solve.moves.length > 10) {
+      var skew = cubeTimestampCalcSkew(solve.moves);
+      $('#skew').val(skew + '%');
+    }
   }
 });
 
-function setTimerValue(timestamp: number) {
-  let t = makeTimeFromTimestamp(timestamp);
-  $('#timer').html(`${t.minutes}:${t.seconds.toString(10).padStart(2, '0')}.${t.milliseconds.toString(10).padStart(3, '0')}`);
-}
-
-var localTimer: Subscription | null = null;
-function startLocalTimer() {
-  var startTime = now();
-  localTimer = interval(30).subscribe(() => {
-    setTimerValue(now() - startTime);
-  });
-}
-
-function stopLocalTimer() {
-  localTimer?.unsubscribe();
-  localTimer = null;
-}
-
 function activateTimer() {
-  if (timerState == "IDLE" && conn) {
-    setTimerState("READY");
+  if (timer.state == "IDLE" && conn) {
+    timer.setState("READY");
   } else {
-    setTimerState("IDLE");
+    timer.setState("IDLE");
   }
 }
 
