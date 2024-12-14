@@ -14,13 +14,19 @@ import {
   GanCubeConnection,
   GanCubeEvent,
   GanCubeMove,
-  MacAddressProvider,
   makeTimeFromTimestamp,
   cubeTimestampCalcSkew,
   cubeTimestampLinearFit
 } from 'gan-web-bluetooth';
 
-import { faceletsToPattern, patternToFacelets } from './utils';
+import {
+  faceletsToPattern,
+  patternToFacelets,
+} from './utils';
+
+import {
+  customMacAddressProvider,
+} from './bt-utils'
 
 const SOLVED_STATE = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
 
@@ -49,7 +55,7 @@ var twistyScene: THREE.Scene;
 var twistyVantage: any;
 
 const HOME_ORIENTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI/4, -Math.PI / 4, 0));
-var cubeQuaternion: THREE.Quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(30 * Math.PI / 180, -30 * Math.PI / 180, 0));
+var cubeQuaternion: THREE.Quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 4, - Math.PI / 4, 0));
 
 async function amimateCubeOrientation() {
   if (!twistyScene || !twistyVantage) {
@@ -73,11 +79,6 @@ async function handleGyroEvent(event: GanCubeEvent) {
       basis = quat.clone().conjugate();
     }
     cubeQuaternion.copy(quat.premultiply(basis).premultiply(HOME_ORIENTATION));
-    $('#quaternion').val(`x: ${qx.toFixed(3)}, y: ${qy.toFixed(3)}, z: ${qz.toFixed(3)}, w: ${qw.toFixed(3)}`);
-    if (event.velocity) {
-      let { x: vx, y: vy, z: vz } = event.velocity;
-      $('#velocity').val(`x: ${vx}, y: ${vy}, z: ${vz}`);
-    }
   }
 }
 
@@ -119,8 +120,6 @@ async function handleFaceletsEvent(event: GanCubeEvent) {
 }
 
 function handleCubeEvent(event: GanCubeEvent) {
-  if (event.type != "GYRO")
-    console.log("GanCubeEvent", event);
   if (event.type == "GYRO") {
     handleGyroEvent(event);
   } else if (event.type == "MOVE") {
@@ -141,15 +140,6 @@ function handleCubeEvent(event: GanCubeEvent) {
     $('#connect').html('Connect');
   }
 }
-
-const customMacAddressProvider: MacAddressProvider = async (device, isFallbackCall): Promise<string | null> => {
-  if (isFallbackCall) {
-    return prompt('Unable do determine cube MAC address!\nPlease enter MAC address manually:');
-  } else {
-    return typeof device.watchAdvertisements == 'function' ? null :
-      prompt('Seems like your browser does not support Web Bluetooth watchAdvertisements() API. Enable following flag in Chrome:\n\nchrome://flags/#enable-experimental-web-platform-features\n\nor enter cube MAC address manually:');
-  }
-};
 
 $('#reset-state').on('click', async () => {
   await conn?.sendCubeCommand({ type: "REQUEST_RESET" });
