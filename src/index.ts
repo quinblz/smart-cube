@@ -31,7 +31,7 @@ var twistyPlayer = new TwistyPlayer({
   experimentalSetupAnchor: 'start',
   background: 'none',
   controlPanel: 'none',
-  hintFacelets: 'none',
+  // hintFacelets: 'none',
   experimentalDragInput: 'none',
   cameraLatitude: 0,
   cameraLongitude: 0,
